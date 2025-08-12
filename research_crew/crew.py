@@ -26,33 +26,16 @@ def get_available_llm():
         {
             "name": "OpenRouter",
             "model": "openrouter/deepseek/deepseek-r1-0528:free",
+            #"model": "openrouter/deepseek/deepseek-chat-v3-0324:free",
+            #"model": "openrouter/qwen/qwen3-coder:free",
             "base_url": "https://openrouter.ai/api/v1",
             "api_key_env": "OPEN_ROUTER_API_KEY",
             "temperature": 0.7
         },
         {
             "name": "Gemini",
-            #"model": "gemini/gemini-2.0-flash",
             "model": "gemini/gemini-2.5-flash",
             "api_key_env": "GEMINI_API_KEY",
-            "temperature": 0.7
-        },
-        {
-            "name": "Groq Llama",
-            "model": "groq/llama-3.3-70b-versatile",
-            "api_key_env": "GROQ_API_KEY",
-            "temperature": 0.7
-        },
-        {
-            "name": "OpenAI GPT-4",
-            "model": "gpt-4o-mini",
-            "api_key_env": "OPENAI_API_KEY", 
-            "temperature": 0.7
-        },
-        {
-            "name": "Anthropic Claude",
-            "model": "claude-3-haiku-20240307",
-            "api_key_env": "ANTHROPIC_API_KEY",
             "temperature": 0.7
         },
         {
@@ -66,43 +49,31 @@ def get_available_llm():
     print("🔍 Checking available LLM providers...")
     
     for config in llm_configs:
-        try:
-            if config["api_key_env"] is None:
-                # For local models like Ollama, try without API key
-                print(f"⚡ Trying {config['name']} (Local)...")
+        if config["api_key_env"] is None:
+            # For local models like Ollama, try without API key
+            print(f"⚡ Trying {config['name']} (Local)...")
+            llm = LLM(
+                model=config["model"],
+                temperature=config["temperature"],
+                max_tokens=1000,
+            )
+            print(f"✅ Using {config['name']}: {config['model']}")
+            return llm
+        else:
+            api_key = os.getenv(config["api_key_env"])
+            if api_key:
+                print(f"⚡ Trying {config['name']}...")
                 llm = LLM(
                     model=config["model"],
                     temperature=config["temperature"],
-                    max_tokens=1000,
+                    api_key=api_key
                 )
                 print(f"✅ Using {config['name']}: {config['model']}")
                 return llm
             else:
-                api_key = os.getenv(config["api_key_env"])
-                if api_key:
-                    print(f"⚡ Trying {config['name']}...")
-                    llm = LLM(
-                        model=config["model"],
-                        temperature=config["temperature"],
-                        api_key=api_key
-                    )
-                    print(f"✅ Using {config['name']}: {config['model']}")
-                    return llm
-                else:
-                    print(f"⚠️  {config['name']} API key not found in environment")
-        except Exception as e:
-            print(f"❌ {config['name']} failed: {str(e)[:100]}...")
-            continue
-    
-    # Fallback to basic configuration if all else fails
-    print("⚠️  Using fallback LLM configuration...")
-    return LLM(
-        model="groq/llama-3.3-70b-versatile",
-        temperature=0.7,
-        api_key=os.getenv("GROQ_API_KEY", "")
-    )
+                print(f"⚠️  {config['name']} API key not found in environment")
 
-# Configure LLM with fallback options
+
 llm = get_available_llm()
 
 # Suppress warnings
@@ -311,17 +282,13 @@ def main():
     server_configs = get_working_servers()
     
     if not server_configs:
-        print("\n⚠️  No MCP servers available. Running in fallback mode only.")
-        run_fallback_mode()
-        return
+        raise ValueError("\n⚠️  No MCP servers available!")
     
     # Test servers individually to find working ones
     working_server_params = test_servers_individually(server_configs)
     
     if not working_server_params:
-        print("\n⚠️  No MCP servers are working. Running in fallback mode.")
-        run_fallback_mode()
-        return
+        raise ValueError("\n⚠️  No MCP servers are working!")
     
     try:
         print(f"\n✓ Using {len(working_server_params)} working MCP server(s)")
@@ -374,38 +341,8 @@ def main():
     except Exception as e:
         print(f"Error running with MCP tools: {e}")
         traceback.print_exc()
-        print("\nFalling back to basic agent without MCP tools...")
-        run_fallback_mode()
+        raise e
 
-def run_fallback_mode():
-    """Run the application without MCP tools"""
-    print("\n" + "="*50)
-    print("RUNNING IN FALLBACK MODE")
-    print("="*50)
-    
-    # Create fallback agent without MCP tools but with LLM
-    agent, tasks = create_agent_and_tasks()
-    
-    crew = Crew(
-        agents=[agent],
-        tasks=tasks,
-        verbose=True,
-        reasoning=True,
-    )
-    
-    # Get user input for fallback
-    topic = input("Please provide a topic to research (fallback mode): ").strip()
-    if not topic:
-        topic = "artificial intelligence"
-        print(f"No topic provided, using default: {topic}")
-    
-    print(f"\nStarting research on: {topic} (without MCP tools)")
-    result = crew.kickoff(inputs={"topic": topic})
-    print("\n" + "="*50)
-    print("FINAL RESULT (Fallback Mode):")
-    print("="*50)
-    print(result["summary"])
-    return result["summary"]
 
 if __name__ == "__main__":
     print("🚀 Starting CrewAI MCP Demo")
