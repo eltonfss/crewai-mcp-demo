@@ -1,0 +1,16 @@
+[project]
+name = "research-demo"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "search_server",
+    "research_crew",
+    "research_ui",
+]
+
+[tool.uv.sources]
+search_server = { path="./search_server", editable=true }
+research_crew = { path="./research_crew", editable=true }
+research_ui = { path="./research_ui", editable=true }
